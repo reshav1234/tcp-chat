@@ -1,44 +1,54 @@
 package main
 
-type sendCommand struct {
-	message string
-}
+import (
+	"fmt"
+	"net"
+)
 
-type nameCommand struct {
-	name string
-}
+//type client interface {
+//	message() string
+//	name() string
+//}
 
-type messageCommand struct {
-	message string
-	name    string
-}
+func main() {
+	// creating tcp connection
+	listener, err := net.Listen("tcp", "localhost:8080")
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
 
-type commandWriter struct {
-	writer io.Writer
-}
+	fmt.Print("server started")
 
-func newCommandWriter(writer io.Writer) *commandWriter {
-	return &commandWriter{
-		writer: writer,
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			fmt.Println("Error accepting", err)
+			continue
+		}
+		go handleClient(conn)
 	}
 }
 
-func (w *commandWriter) writeString(msg string) error {
-	_, err := w.writer.Write([]byte(msg))
-	return err
-}
+func handleClient(conn net.Conn) {
+	defer conn.Close()
 
-func (w *commandWriter) Write(command interface{}) error {
-	var err error
-	switch v := command.(type) {
-	case sendCommand:
-		err = w.writeString(fmt.Sprintf("SEND %v\n", v.message))
-	case nameCommand:
-		err = w.writeString(fmt.Sprintf("Name %v\n", v.name))
-	case messageCommand:
-		err := w.writeString(fmt.Sprintf("MESSAGE %v\n", v.name, v.message))
-	default:
-		err = UnknownCommand
+	// buffer to read input
+
+	buffer := make([]byte, 1024)
+	for {
+		readBuffer, err := conn.Read(buffer)
+		if err != nil {
+			fmt.Println("Error reading buffer: ", err)
+			return
+		}
+		fmt.Printf("Server: %s\n", buffer[:readBuffer])
+
+		data := []byte("client:")
+		_, err = conn.Write(data)
+		if err != nil {
+			fmt.Print("Error writing in server: ", err)
+			return
+		}
 	}
-	return err
 }
